@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Stock Predictor</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;500;600&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0e0f11;
+      --surface: #16181c;
+      --border: #2a2d35;
+      --border-light: #353840;
+      --text: #f0f0ee;
+      --muted: #6b6f7a;
+      --accent: #c8f06a;
+      --accent-dim: rgba(200, 240, 106, 0.08);
+      --up: #5fca8a;
+      --up-bg: rgba(95, 202, 138, 0.08);
+      --down: #e5685a;
+      --down-bg: rgba(229, 104, 90, 0.08);
+      --neutral: #8b8fa8;
+      --neutral-bg: rgba(139, 143, 168, 0.08);
+      --mono: 'DM Mono', monospace;
+      --sans: 'Syne', sans-serif;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      min-height: 100vh;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 3rem 1rem 4rem;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 500px;
+    }
+
+    .header {
+      margin-bottom: 2.5rem;
+    }
+
+    .header h1 {
+      font-size: 13px;
+      font-family: var(--mono);
+      color: var(--muted);
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      margin-bottom: 0.5rem;
+    }
+
+    .header p {
+      font-size: 28px;
+      font-weight: 600;
+      color: var(--text);
+      line-height: 1.2;
+    }
+
+    .header p span {
+      color: var(--accent);
+    }
+
+    .input-row {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 1rem;
+    }
+
+    .ticker-wrap {
+      flex: 1;
+      position: relative;
+    }
+
+    .ticker-prefix {
+      position: absolute;
+      left: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-family: var(--mono);
+      font-size: 14px;
+      color: var(--muted);
+      pointer-events: none;
+    }
+
+    input[type="text"] {
+      width: 100%;
+      height: 52px;
+      padding: 0 14px 0 32px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 16px;
+      font-weight: 500;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    input[type="text"]::placeholder { color: var(--muted); }
+    input[type="text"]:focus { border-color: var(--accent); }
+
+    select {
+      height: 52px;
+      padding: 0 12px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 13px;
+      outline: none;
+      cursor: pointer;
+      transition: border-color 0.2s;
+      appearance: none;
+      -webkit-appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' fill='none'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%236b6f7a' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      padding-right: 32px;
+    }
+
+    select:focus { border-color: var(--accent); }
+
+    button#predictBtn {
+      width: 100%;
+      height: 52px;
+      background: var(--accent);
+      border: none;
+      border-radius: 10px;
+      color: #0e0f11;
+      font-family: var(--sans);
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      letter-spacing: 0.02em;
+      transition: opacity 0.2s, transform 0.1s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    button#predictBtn:hover { opacity: 0.88; }
+    button#predictBtn:active { transform: scale(0.98); }
+    button#predictBtn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+
+    .spinner {
+      width: 16px; height: 16px;
+      border: 2px solid rgba(0,0,0,0.2);
+      border-top-color: #0e0f11;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      display: none;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .result {
+      margin-top: 1.5rem;
+      display: none;
+      animation: fadeUp 0.35s ease;
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(10px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .result-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1rem;
+    }
+
+    .result-ticker {
+      font-size: 32px;
+      font-weight: 600;
+      font-family: var(--mono);
+      letter-spacing: 0.04em;
+      color: var(--text);
+    }
+
+    .sentiment-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 12px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-family: var(--mono);
+      font-weight: 500;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .badge-up   { background: var(--up-bg);      color: var(--up);      border: 1px solid rgba(95,202,138,0.2); }
+    .badge-down { background: var(--down-bg);    color: var(--down);    border: 1px solid rgba(229,104,90,0.2); }
+    .badge-neu  { background: var(--neutral-bg); color: var(--neutral); border: 1px solid rgba(139,143,168,0.2); }
+
+    .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+
+    .metrics {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .metric-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1rem 1.1rem;
+    }
+
+    .metric-card .label {
+      font-size: 11px;
+      font-family: var(--mono);
+      color: var(--muted);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+
+    .metric-card .value {
+      font-size: 26px;
+      font-family: var(--mono);
+      font-weight: 500;
+      color: var(--text);
+      line-height: 1;
+    }
+
+    .metric-card .sub {
+      font-size: 12px;
+      font-family: var(--mono);
+      margin-top: 5px;
+    }
+
+    .change-up   { color: var(--up); }
+    .change-down { color: var(--down); }
+
+    .sentiment-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1rem 1.1rem;
+    }
+
+    .sentiment-card .label {
+      font-size: 11px;
+      font-family: var(--mono);
+      color: var(--muted);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+
+    .sent-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+
+    .sent-row-label {
+      font-size: 11px;
+      font-family: var(--mono);
+      color: var(--muted);
+      width: 56px;
+      flex-shrink: 0;
+    }
+
+    .sent-bar-bg {
+      flex: 1;
+      height: 5px;
+      background: var(--border);
+      border-radius: 99px;
+      overflow: hidden;
+    }
+
+    .sent-bar-fill {
+      height: 100%;
+      border-radius: 99px;
+      transition: width 0.6s ease;
+    }
+
+    .bar-pos  { background: var(--up); }
+    .bar-neg  { background: var(--down); }
+    .bar-neu  { background: var(--neutral); }
+
+    .sent-count {
+      font-size: 12px;
+      font-family: var(--mono);
+      color: var(--muted);
+      width: 28px;
+      text-align: right;
+      flex-shrink: 0;
+    }
+
+    .sent-score-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 14px;
+      padding-top: 12px;
+      border-top: 1px solid var(--border);
+    }
+
+    .sent-score-row span {
+      font-size: 11px;
+      font-family: var(--mono);
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .sent-score-val {
+      font-size: 13px;
+      font-family: var(--mono);
+      font-weight: 500;
+    }
+
+    .error-box {
+      margin-top: 1rem;
+      padding: 12px 14px;
+      background: var(--down-bg);
+      border: 1px solid rgba(229,104,90,0.2);
+      border-radius: 10px;
+      font-size: 13px;
+      font-family: var(--mono);
+      color: var(--down);
+      display: none;
+    }
+
+    .divider {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 1.25rem 0;
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <div class="header">
+    <h1>ML-powered</h1>
+    <p>Stock price<br/><span>predictor.</span></p>
+  </div>
+
+  <div class="input-row">
+    <div class="ticker-wrap">
+      <span class="ticker-prefix">$</span>
+      <input type="text" id="tickerInput" placeholder="AAPL" maxlength="6" />
+    </div>
+    <select id="modelSelect">
+      <option value="lr">Linear</option>
+      <option value="rf">Random Forest</option>
+      <option value="xgb">XGBoost</option>
+    </select>
+  </div>
+
+  <button id="predictBtn" onclick="runPrediction()">
+    <div class="spinner" id="spinner"></div>
+    <span id="btnText">Predict price</span>
+  </button>
+
+  <div class="error-box" id="errorBox"></div>
+
+  <div class="result" id="result">
+    <hr class="divider" />
+
+    <div class="result-header">
+      <div class="result-ticker" id="resTicker">AAPL</div>
+      <div class="sentiment-badge" id="sentBadge">
+        <div class="dot"></div>
+        <span id="sentLabel">Bullish</span>
+      </div>
+    </div>
+
+    <div class="metrics">
+      <div class="metric-card">
+        <div class="label">Current price</div>
+        <div class="value" id="resCurrent">—</div>
+      </div>
+      <div class="metric-card">
+        <div class="label">Predicted price</div>
+        <div class="value" id="resPredicted">—</div>
+        <div class="sub" id="resChange"></div>
+      </div>
+    </div>
+
+    <div class="sentiment-card">
+      <div class="label">News sentiment &mdash; <span id="totalNews">0</span> articles</div>
+      <div class="sent-row">
+        <div class="sent-row-label">Positive</div>
+        <div class="sent-bar-bg"><div class="sent-bar-fill bar-pos" id="barPos" style="width:0%"></div></div>
+        <div class="sent-count" id="cntPos">0</div>
+      </div>
+      <div class="sent-row">
+        <div class="sent-row-label">Neutral</div>
+        <div class="sent-bar-bg"><div class="sent-bar-fill bar-neu" id="barNeu" style="width:0%"></div></div>
+        <div class="sent-count" id="cntNeu">0</div>
+      </div>
+      <div class="sent-row">
+        <div class="sent-row-label">Negative</div>
+        <div class="sent-bar-bg"><div class="sent-bar-fill bar-neg" id="barNeg" style="width:0%"></div></div>
+        <div class="sent-count" id="cntNeg">0</div>
+      </div>
+      <div class="sent-score-row">
+        <span>Avg sentiment score</span>
+        <span class="sent-score-val" id="avgScore">--</span>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  const API = 'http://127.0.0.1:8000/analyze';
+
+  document.getElementById('tickerInput').addEventListener('input', e => {
+    e.target.value = e.target.value.toUpperCase();
+  });
+
+  document.getElementById('tickerInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') runPrediction();
+  });
+
+  async function runPrediction() {
+    const ticker = document.getElementById('tickerInput').value.trim().toUpperCase();
+    const model_type = document.getElementById('modelSelect').value;
+
+    if (!ticker) {
+      showError('Please enter a ticker symbol.');
+      return;
+    }
+
+    setLoading(true);
+    hideError();
+    document.getElementById('result').style.display = 'none';
+
+    try {
+      const res = await fetch(API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ticker, model_type })
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || `Server error: ${res.status}`);
+      }
+
+      const data = await res.json();
+      renderResult(data);
+
+    } catch (err) {
+      showError(err.message || 'Could not connect to the prediction server. Make sure it is running on port 8000.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function renderResult(data) {
+    const { ticker, prediction, current_price, sentiment } = data;
+
+    const pct = ((prediction - current_price) / current_price * 100).toFixed(2);
+    const up = parseFloat(pct) >= 0;
+
+    document.getElementById('resTicker').textContent = ticker;
+    document.getElementById('resCurrent').textContent = '$' + current_price.toFixed(2);
+    document.getElementById('resPredicted').textContent = '$' + prediction.toFixed(2);
+
+    const changeEl = document.getElementById('resChange');
+    changeEl.textContent = (up ? '+' : '') + pct + '% expected';
+    changeEl.className = 'sub ' + (up ? 'change-up' : 'change-down');
+
+    const badge = document.getElementById('sentBadge');
+    const label = document.getElementById('sentLabel');
+    const overall = (sentiment.overall_sentiment || '').toLowerCase();
+
+    if (overall === 'positive') {
+      badge.className = 'sentiment-badge badge-up';
+      label.textContent = 'Bullish';
+    } else if (overall === 'negative') {
+      badge.className = 'sentiment-badge badge-down';
+      label.textContent = 'Bearish';
+    } else {
+      badge.className = 'sentiment-badge badge-neu';
+      label.textContent = 'Neutral';
+    }
+
+    const total = sentiment.total_news || 1;
+    document.getElementById('totalNews').textContent = sentiment.total_news || 0;
+    document.getElementById('cntPos').textContent = sentiment.positive || 0;
+    document.getElementById('cntNeu').textContent = sentiment.neutral || 0;
+    document.getElementById('cntNeg').textContent = sentiment.negative || 0;
+    document.getElementById('barPos').style.width = ((sentiment.positive / total) * 100).toFixed(1) + '%';
+    document.getElementById('barNeu').style.width = ((sentiment.neutral  / total) * 100).toFixed(1) + '%';
+    document.getElementById('barNeg').style.width = ((sentiment.negative / total) * 100).toFixed(1) + '%';
+
+    const score = sentiment.avg_score;
+    const scoreEl = document.getElementById('avgScore');
+    scoreEl.textContent = (score >= 0 ? '+' : '') + score.toFixed(4);
+    scoreEl.style.color = score > 0.01 ? 'var(--up)' : score < -0.01 ? 'var(--down)' : 'var(--neutral)';
+
+    document.getElementById('result').style.display = 'block';
+  }
+
+  function setLoading(on) {
+    const btn = document.getElementById('predictBtn');
+    document.getElementById('spinner').style.display = on ? 'block' : 'none';
+    document.getElementById('btnText').textContent = on ? 'Analyzing...' : 'Predict price';
+    btn.disabled = on;
+  }
+
+  function showError(msg) {
+    const box = document.getElementById('errorBox');
+    box.textContent = msg;
+    box.style.display = 'block';
+  }
+
+  function hideError() {
+    document.getElementById('errorBox').style.display = 'none';
+  }
+</script>
+</body>
+</html>
